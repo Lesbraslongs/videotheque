@@ -11,6 +11,7 @@
 
 namespace Symfony\Component\Console\Helper;
 
+use Symfony\Component\Console\Output\ConsoleOutputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 
 /**
@@ -182,6 +183,10 @@ class ProgressHelper extends Helper
      */
     public function start(OutputInterface $output, $max = null)
     {
+        if ($output instanceof ConsoleOutputInterface) {
+            $output = $output->getErrorOutput();
+        }
+
         $this->startTime = time();
         $this->current = 0;
         $this->max = (int) $max;
@@ -235,11 +240,11 @@ class ProgressHelper extends Helper
             $redraw = true;
         }
 
-        $prevPeriod = intval($this->current / $this->redrawFreq);
+        $prevPeriod = (int) ($this->current / $this->redrawFreq);
 
         $this->current += $step;
 
-        $currPeriod = intval($this->current / $this->redrawFreq);
+        $currPeriod = (int) ($this->current / $this->redrawFreq);
         if ($redraw || $prevPeriod !== $currPeriod || $this->max === $this->current) {
             $this->display();
         }
@@ -269,11 +274,11 @@ class ProgressHelper extends Helper
             $redraw = true;
         }
 
-        $prevPeriod = intval($this->current / $this->redrawFreq);
+        $prevPeriod = (int) ($this->current / $this->redrawFreq);
 
         $this->current = $current;
 
-        $currPeriod = intval($this->current / $this->redrawFreq);
+        $currPeriod = (int) ($this->current / $this->redrawFreq);
         if ($redraw || $prevPeriod !== $currPeriod || $this->max === $this->current) {
             $this->display();
         }

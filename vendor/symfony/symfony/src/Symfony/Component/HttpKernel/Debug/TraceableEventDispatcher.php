@@ -88,6 +88,18 @@ class TraceableEventDispatcher implements EventDispatcherInterface, TraceableEve
      */
     public function removeListener($eventName, $listener)
     {
+        if (isset($this->wrappedListeners[$this->lastEventId])) {
+            foreach ($this->wrappedListeners[$this->lastEventId] as $wrappedListener) {
+                $originalListener = $this->wrappedListeners[$this->lastEventId][$wrappedListener];
+
+                if ($originalListener === $listener) {
+                    unset($this->wrappedListeners[$this->lastEventId][$wrappedListener]);
+
+                    return $this->dispatcher->removeListener($eventName, $wrappedListener);
+                }
+            }
+        }
+
         return $this->dispatcher->removeListener($eventName, $listener);
     }
 
@@ -122,6 +134,10 @@ class TraceableEventDispatcher implements EventDispatcherInterface, TraceableEve
     {
         if (null === $event) {
             $event = new Event();
+        }
+
+        if (null !== $this->logger && $event->isPropagationStopped()) {
+            $this->logger->debug(sprintf('The "%s" event is already stopped. No listeners have been called.', $eventName));
         }
 
         $eventId = ++$this->lastEventId;
@@ -472,9 +488,9 @@ class TraceableEventDispatcher implements EventDispatcherInterface, TraceableEve
         // get the original listener
         if (is_object($listener)) {
             if (null === $eventId) {
-                foreach (array_keys($this->wrappedListeners) as $eventId) {
-                    if (isset($this->wrappedListeners[$eventId][$listener])) {
-                        return $this->wrappedListeners[$eventId][$listener];
+                foreach ($this->wrappedListeners as $eventId => $eventListeners) {
+                    if (isset($eventListeners[$listener])) {
+                        return $eventListeners[$listener];
                     }
                 }
             } elseif (isset($this->wrappedListeners[$eventId][$listener])) {

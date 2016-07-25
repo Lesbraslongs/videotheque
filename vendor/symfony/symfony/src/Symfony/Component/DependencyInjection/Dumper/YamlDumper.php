@@ -18,32 +18,15 @@ use Symfony\Component\DependencyInjection\Definition;
 use Symfony\Component\DependencyInjection\Parameter;
 use Symfony\Component\DependencyInjection\Reference;
 use Symfony\Component\DependencyInjection\Exception\RuntimeException;
-use Symfony\Component\DependencyInjection\ContainerBuilder;
 
 /**
  * YamlDumper dumps a service container as a YAML string.
  *
  * @author Fabien Potencier <fabien@symfony.com>
- *
- * @api
  */
 class YamlDumper extends Dumper
 {
     private $dumper;
-
-    /**
-     * Constructor.
-     *
-     * @param ContainerBuilder $container The service container to dump
-     *
-     * @api
-     */
-    public function __construct(ContainerBuilder $container)
-    {
-        parent::__construct($container);
-
-        $this->dumper = new YmlDumper();
-    }
 
     /**
      * Dumps the service container as an YAML string.
@@ -51,11 +34,17 @@ class YamlDumper extends Dumper
      * @param array $options An array of options
      *
      * @return string A YAML string representing of the service container
-     *
-     * @api
      */
     public function dump(array $options = array())
     {
+        if (!class_exists('Symfony\Component\Yaml\Dumper')) {
+            throw new RuntimeException('Unable to dump the container as the Symfony Yaml Component is not installed.');
+        }
+
+        if (null === $this->dumper) {
+            $this->dumper = new YmlDumper();
+        }
+
         return $this->addParameters()."\n".$this->addServices();
     }
 
@@ -70,8 +59,12 @@ class YamlDumper extends Dumper
     private function addService($id, $definition)
     {
         $code = "    $id:\n";
-        if ($definition->getClass()) {
-            $code .= sprintf("        class: %s\n", $definition->getClass());
+        if ($class = $definition->getClass()) {
+            if ('\\' === substr($class, 0, 1)) {
+                $class = substr($class, 1);
+            }
+
+            $code .= sprintf("        class: %s\n", $this->dumper->dump($class));
         }
 
         if (!$definition->isPublic()) {
@@ -95,7 +88,7 @@ class YamlDumper extends Dumper
         }
 
         if ($definition->getFile()) {
-            $code .= sprintf("        file: %s\n", $definition->getFile());
+            $code .= sprintf("        file: %s\n", $this->dumper->dump($definition->getFile()));
         }
 
         if ($definition->isSynthetic()) {
@@ -107,7 +100,7 @@ class YamlDumper extends Dumper
         }
 
         if ($definition->getFactoryClass()) {
-            $code .= sprintf("        factory_class: %s\n", $definition->getFactoryClass());
+            $code .= sprintf("        factory_class: %s\n", $this->dumper->dump($definition->getFactoryClass()));
         }
 
         if ($definition->isLazy()) {
@@ -115,11 +108,11 @@ class YamlDumper extends Dumper
         }
 
         if ($definition->getFactoryMethod()) {
-            $code .= sprintf("        factory_method: %s\n", $definition->getFactoryMethod());
+            $code .= sprintf("        factory_method: %s\n", $this->dumper->dump($definition->getFactoryMethod()));
         }
 
         if ($definition->getFactoryService()) {
-            $code .= sprintf("        factory_service: %s\n", $definition->getFactoryService());
+            $code .= sprintf("        factory_service: %s\n", $this->dumper->dump($definition->getFactoryService()));
         }
 
         if ($definition->getArguments()) {
@@ -135,7 +128,7 @@ class YamlDumper extends Dumper
         }
 
         if (ContainerInterface::SCOPE_CONTAINER !== $scope = $definition->getScope()) {
-            $code .= sprintf("        scope: %s\n", $scope);
+            $code .= sprintf("        scope: %s\n", $this->dumper->dump($scope));
         }
 
         if ($callable = $definition->getConfigurator()) {
@@ -164,10 +157,10 @@ class YamlDumper extends Dumper
     private function addServiceAlias($alias, $id)
     {
         if ($id->isPublic()) {
-            return sprintf("    %s: @%s\n", $alias, $id);
-        } else {
-            return sprintf("    %s:\n        alias: %s\n        public: false", $alias, $id);
+            return sprintf("    %s: '@%s'\n", $alias, $id);
         }
+
+        return sprintf("    %s:\n        alias: %s\n        public: false", $alias, $id);
     }
 
     /**

@@ -12,6 +12,7 @@
 namespace Symfony\Component\Serializer\Tests\Encoder;
 
 use Symfony\Component\Serializer\Tests\Fixtures\Dummy;
+use Symfony\Component\Serializer\Tests\Fixtures\NormalizableTraversableDummy;
 use Symfony\Component\Serializer\Tests\Fixtures\ScalarDummy;
 use Symfony\Component\Serializer\Encoder\XmlEncoder;
 use Symfony\Component\Serializer\Serializer;
@@ -32,7 +33,7 @@ class XmlEncoderTest extends \PHPUnit_Framework_TestCase
     public function testEncodeScalar()
     {
         $obj = new ScalarDummy();
-        $obj->xmlFoo = "foo";
+        $obj->xmlFoo = 'foo';
 
         $expected = '<?xml version="1.0"?>'."\n".
             '<response>foo</response>'."\n";
@@ -43,7 +44,7 @@ class XmlEncoderTest extends \PHPUnit_Framework_TestCase
     public function testSetRootNodeName()
     {
         $obj = new ScalarDummy();
-        $obj->xmlFoo = "foo";
+        $obj->xmlFoo = 'foo';
 
         $this->encoder->setRootNodeName('test');
         $expected = '<?xml version="1.0"?>'."\n".
@@ -70,11 +71,11 @@ class XmlEncoderTest extends \PHPUnit_Framework_TestCase
                 '@name' => 'Bar',
             ),
             'Foo' => array(
-                'Bar' => "Test",
+                'Bar' => 'Test',
                 '@Type' => 'test',
             ),
             'föo_bär' => 'a',
-            "Bar" => array(1,2,3),
+            'Bar' => array(1, 2, 3),
             'a' => 'b',
         );
         $expected = '<?xml version="1.0"?>'."\n".
@@ -203,6 +204,21 @@ class XmlEncoderTest extends \PHPUnit_Framework_TestCase
         $this->assertEquals($expected, $serializer->serialize($array, 'xml', $options));
     }
 
+    public function testEncodeTraversableWhenNormalizable() {
+        $this->encoder = new XmlEncoder();
+        $serializer = new Serializer(array(new CustomNormalizer()), array('xml' => new XmlEncoder()));
+        $this->encoder->setSerializer($serializer);
+
+        $expected = <<<XML
+<?xml version="1.0"?>
+<response><foo>normalizedFoo</foo><bar>normalizedBar</bar></response>
+
+XML;
+
+        $this->assertEquals($expected, $serializer->serialize(new NormalizableTraversableDummy(), 'xml'));
+
+    }
+
     public function testDecode()
     {
         $source = $this->getXmlSource();
@@ -275,28 +291,28 @@ class XmlEncoderTest extends \PHPUnit_Framework_TestCase
         $obj = new ScalarDummy();
         $obj->xmlFoo = array(
             'foo-bar' => array(
-                '@key' => "value",
-                'item' => array("@key" => 'key', "key-val" => 'val'),
+                '@key' => 'value',
+                'item' => array('@key' => 'key', 'key-val' => 'val'),
             ),
             'Foo' => array(
-                'Bar' => "Test",
+                'Bar' => 'Test',
                 '@Type' => 'test',
             ),
             'föo_bär' => 'a',
-            "Bar" => array(1,2,3),
+            'Bar' => array(1, 2, 3),
             'a' => 'b',
         );
         $expected = array(
             'foo-bar' => array(
-                '@key' => "value",
-                'key' => array('@key' => 'key', "key-val" => 'val'),
+                '@key' => 'value',
+                'key' => array('@key' => 'key', 'key-val' => 'val'),
             ),
             'Foo' => array(
-                'Bar' => "Test",
+                'Bar' => 'Test',
                 '@Type' => 'test',
             ),
             'föo_bär' => 'a',
-            "Bar" => array(1,2,3),
+            'Bar' => array(1, 2, 3),
             'a' => 'b',
         );
         $xml = $this->encoder->encode($obj, 'xml');
@@ -355,7 +371,7 @@ class XmlEncoderTest extends \PHPUnit_Framework_TestCase
         $obj->foo = 'foo';
         $obj->bar = array('a', 'b');
         $obj->baz = array('key' => 'val', 'key2' => 'val', 'A B' => 'bar', 'item' => array(array('title' => 'title1'), array('title' => 'title2')), 'Barry' => array('FooBar' => array('Baz' => 'Ed', '@id' => 1)));
-        $obj->qux = "1";
+        $obj->qux = '1';
 
         return $obj;
     }

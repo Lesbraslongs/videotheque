@@ -15,8 +15,6 @@ namespace Symfony\Component\Validator;
  * Base class for constraint validators.
  *
  * @author Bernhard Schussek <bschussek@gmail.com>
- *
- * @api
  */
 abstract class ConstraintValidator implements ConstraintValidatorInterface
 {
@@ -24,14 +22,14 @@ abstract class ConstraintValidator implements ConstraintValidatorInterface
      * Whether to format {@link \DateTime} objects as RFC-3339 dates
      * ("Y-m-d H:i:s").
      *
-     * @var integer
+     * @var int
      */
     const PRETTY_DATE = 1;
 
     /**
      * Whether to cast objects with a "__toString()" method to strings.
      *
-     * @var integer
+     * @var int
      */
     const OBJECT_TO_STRING = 2;
 
@@ -71,9 +69,9 @@ abstract class ConstraintValidator implements ConstraintValidatorInterface
      * This method returns the equivalent PHP tokens for most scalar types
      * (i.e. "false" for false, "1" for 1 etc.). Strings are always wrapped
      * in double quotes ("). Objects, arrays and resources are formatted as
-     * "object", "array" and "resource". If the parameter $prettyDateTime
-     * is set to true, {@link \DateTime} objects will be formatted as
-     * RFC-3339 dates ("Y-m-d H:i:s").
+     * "object", "array" and "resource". If the $format bitmask contains
+     * the PRETTY_DATE bit, then {@link \DateTime} objects will be formatted 
+     * as RFC-3339 dates ("Y-m-d H:i:s").
      *
      * Be careful when passing message parameters to a constraint violation
      * that (may) contain objects, arrays or resources. These parameters
@@ -81,9 +79,9 @@ abstract class ConstraintValidator implements ConstraintValidatorInterface
      * won't know what an "object", "array" or "resource" is and will be
      * confused by the violation message.
      *
-     * @param mixed   $value  The value to format as string
-     * @param integer $format A bitwise combination of the format
-     *                        constants in this class
+     * @param mixed $value  The value to format as string
+     * @param int   $format A bitwise combination of the format
+     *                      constants in this class
      *
      * @return string The string representation of the passed value
      */
@@ -101,7 +99,7 @@ abstract class ConstraintValidator implements ConstraintValidatorInterface
         }
 
         if (is_object($value)) {
-            if ($format & self::OBJECT_TO_STRING && method_exists($value, '__toString')) {
+            if (($format & self::OBJECT_TO_STRING) && method_exists($value, '__toString')) {
                 return $value->__toString();
             }
 
@@ -141,9 +139,9 @@ abstract class ConstraintValidator implements ConstraintValidatorInterface
      * Each of the values is converted to a string using
      * {@link formatValue()}. The values are then concatenated with commas.
      *
-     * @param array   $values A list of values
-     * @param integer $format A bitwise combination of the format
-     *                        constants in this class
+     * @param array $values A list of values
+     * @param int   $format A bitwise combination of the format
+     *                      constants in this class
      *
      * @return string The string representation of the value list
      *

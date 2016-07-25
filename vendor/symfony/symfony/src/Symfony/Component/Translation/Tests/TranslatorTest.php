@@ -239,6 +239,30 @@ class TranslatorTest extends \PHPUnit_Framework_TestCase
         $translator->trans('foo');
     }
 
+    public function testFallbackCatalogueResources()
+    {
+        $translator = new Translator('en_GB', new MessageSelector());
+        $translator->addLoader('yml', new \Symfony\Component\Translation\Loader\YamlFileLoader());
+        $translator->addResource('yml', __DIR__.'/fixtures/empty.yml', 'en_GB');
+        $translator->addResource('yml', __DIR__.'/fixtures/resources.yml', 'en');
+
+        // force catalogue loading
+        $this->assertEquals('bar', $translator->trans('foo', array()));
+
+        $cataloguesProperty = new \ReflectionProperty($translator, 'catalogues');
+        $cataloguesProperty->setAccessible(true);
+        $catalogues = $cataloguesProperty->getValue($translator);
+
+        $resources = $catalogues['en']->getResources();
+        $this->assertCount(1, $resources);
+        $this->assertContains( __DIR__.DIRECTORY_SEPARATOR.'fixtures'.DIRECTORY_SEPARATOR.'resources.yml', $resources);
+
+        $resources = $catalogues['en_GB']->getResources();
+        $this->assertCount(2, $resources);
+        $this->assertContains( __DIR__.DIRECTORY_SEPARATOR.'fixtures'.DIRECTORY_SEPARATOR.'empty.yml', $resources);
+        $this->assertContains( __DIR__.DIRECTORY_SEPARATOR.'fixtures'.DIRECTORY_SEPARATOR.'resources.yml', $resources);
+    }
+
     /**
      * @dataProvider getTransTests
      */
@@ -346,7 +370,7 @@ class TranslatorTest extends \PHPUnit_Framework_TestCase
         return array(
             array('Symfony est super !', 'Symfony is great!', 'Symfony est super !', array(), 'fr', ''),
             array('Symfony est awesome !', 'Symfony is %what%!', 'Symfony est %what% !', array('%what%' => 'awesome'), 'fr', ''),
-            array('Symfony est super !', new String('Symfony is great!'), 'Symfony est super !', array(), 'fr', ''),
+            array('Symfony est super !', new StringClass('Symfony is great!'), 'Symfony est super !', array(), 'fr', ''),
         );
     }
 
@@ -392,7 +416,7 @@ class TranslatorTest extends \PHPUnit_Framework_TestCase
             array('Il y a 1 pomme', '{0} There are no apples|one: There is one apple|more: There is %count% apples', '{0} Il n\'y a aucune pomme|one: Il y a %count% pomme|more: Il y a %count% pommes', 1, array('%count%' => 1), 'fr', ''),
             array('Il y a 10 pommes', '{0} There are no apples|one: There is one apple|more: There is %count% apples', '{0} Il n\'y a aucune pomme|one: Il y a %count% pomme|more: Il y a %count% pommes', 10, array('%count%' => 10), 'fr', ''),
 
-            array('Il y a 0 pomme', new String('{0} There are no appless|{1} There is one apple|]1,Inf] There is %count% apples'), '[0,1] Il y a %count% pomme|]1,Inf] Il y a %count% pommes', 0, array('%count%' => 0), 'fr', ''),
+            array('Il y a 0 pomme', new StringClass('{0} There are no appless|{1} There is one apple|]1,Inf] There is %count% apples'), '[0,1] Il y a %count% pomme|]1,Inf] Il y a %count% pommes', 0, array('%count%' => 0), 'fr', ''),
         );
     }
 
@@ -462,7 +486,7 @@ class TranslatorTest extends \PHPUnit_Framework_TestCase
     }
 }
 
-class String
+class StringClass
 {
     protected $str;
 

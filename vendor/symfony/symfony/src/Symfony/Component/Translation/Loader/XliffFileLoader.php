@@ -21,15 +21,11 @@ use Symfony\Component\Config\Resource\FileResource;
  * XliffFileLoader loads translations from XLIFF files.
  *
  * @author Fabien Potencier <fabien@symfony.com>
- *
- * @api
  */
 class XliffFileLoader implements LoaderInterface
 {
     /**
      * {@inheritdoc}
-     *
-     * @api
      */
     public function load($resource, $locale, $domain = 'messages')
     {
@@ -48,12 +44,12 @@ class XliffFileLoader implements LoaderInterface
         foreach ($xml->xpath('//xliff:trans-unit') as $translation) {
             $attributes = $translation->attributes();
 
-            if (!(isset($attributes['resname']) || isset($translation->source)) || !isset($translation->target)) {
+            if (!(isset($attributes['resname']) || isset($translation->source))) {
                 continue;
             }
 
             $source = isset($attributes['resname']) && $attributes['resname'] ? $attributes['resname'] : $translation->source;
-            $target = (string) $translation->target;
+            $target = (string) (isset($translation->target) ? $translation->target : $source);
 
             // If the xlf file has another encoding specified, try to convert it because
             // simple_xml will always return utf-8 encoded values
@@ -69,7 +65,10 @@ class XliffFileLoader implements LoaderInterface
 
             $catalogue->set((string) $source, $target, $domain);
         }
-        $catalogue->addResource(new FileResource($resource));
+
+        if (class_exists('Symfony\Component\Config\Resource\FileResource')) {
+            $catalogue->addResource(new FileResource($resource));
+        }
 
         return $catalogue;
     }
@@ -111,7 +110,7 @@ class XliffFileLoader implements LoaderInterface
         $source = str_replace('http://www.w3.org/2001/xml.xsd', $location, $source);
 
         if (!@$dom->schemaValidateSource($source)) {
-            throw new InvalidResourceException(implode("\n", $this->getXmlErrors($internalErrors)));
+            throw new InvalidResourceException(sprintf('Invalid resource provided: "%s"; Errors: %s', $file, implode("\n", $this->getXmlErrors($internalErrors))));
         }
 
         $dom->normalizeDocument();
@@ -137,7 +136,7 @@ class XliffFileLoader implements LoaderInterface
                 LIBXML_ERR_WARNING == $error->level ? 'WARNING' : 'ERROR',
                 $error->code,
                 trim($error->message),
-                $error->file ? $error->file : 'n/a',
+                $error->file ?: 'n/a',
                 $error->line,
                 $error->column
             );

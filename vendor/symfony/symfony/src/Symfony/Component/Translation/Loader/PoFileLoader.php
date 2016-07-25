@@ -19,7 +19,7 @@ use Symfony\Component\Config\Resource\FileResource;
  * @copyright Copyright (c) 2010, Union of RAD http://union-of-rad.org (http://lithify.me/)
  * @copyright Copyright (c) 2012, Clemens Tolboom
  */
-class PoFileLoader extends ArrayLoader implements LoaderInterface
+class PoFileLoader extends ArrayLoader
 {
     public function load($resource, $locale, $domain = 'messages')
     {
@@ -44,7 +44,10 @@ class PoFileLoader extends ArrayLoader implements LoaderInterface
         }
 
         $catalogue = parent::load($messages, $locale, $domain);
-        $catalogue->addResource(new FileResource($resource));
+
+        if (class_exists('Symfony\Component\Config\Resource\FileResource')) {
+            $catalogue->addResource(new FileResource($resource));
+        }
 
         return $catalogue;
     }
@@ -105,14 +108,20 @@ class PoFileLoader extends ArrayLoader implements LoaderInterface
 
         $messages = array();
         $item = $defaults;
+        $flags = array();
 
         while ($line = fgets($stream)) {
             $line = trim($line);
 
             if ($line === '') {
                 // Whitespace indicated current item is done
-                $this->addMessage($messages, $item);
+                if (!in_array('fuzzy', $flags)) {
+                    $this->addMessage($messages, $item);
+                }
                 $item = $defaults;
+                $flags = array();
+            } elseif (substr($line, 0, 2) === '#,') {
+                $flags = array_map('trim', explode(',', substr($line, 2)));
             } elseif (substr($line, 0, 7) === 'msgid "') {
                 // We start a new msg so save previous
                 // TODO: this fails when comments or contexts are added
@@ -138,7 +147,9 @@ class PoFileLoader extends ArrayLoader implements LoaderInterface
             }
         }
         // save last item
-        $this->addMessage($messages, $item);
+        if (!in_array('fuzzy', $flags)) {
+            $this->addMessage($messages, $item);
+        }
         fclose($stream);
 
         return $messages;
@@ -165,7 +176,7 @@ class PoFileLoader extends ArrayLoader implements LoaderInterface
                 end($plurals);
                 $count = key($plurals);
                 // Fill missing spots with '-'.
-                $empties = array_fill(0, $count+1, '-');
+                $empties = array_fill(0, $count + 1, '-');
                 $plurals += $empties;
                 ksort($plurals);
                 $messages[stripcslashes($item['ids']['plural'])] = stripcslashes(implode('|', $plurals));

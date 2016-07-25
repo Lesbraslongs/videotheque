@@ -15,7 +15,9 @@ use Symfony\Component\PropertyAccess\PropertyAccessor;
 use Symfony\Component\PropertyAccess\Tests\Fixtures\Author;
 use Symfony\Component\PropertyAccess\Tests\Fixtures\Magician;
 use Symfony\Component\PropertyAccess\Tests\Fixtures\MagicianCall;
+use Symfony\Component\PropertyAccess\Tests\Fixtures\TestClass;
 use Symfony\Component\PropertyAccess\Tests\Fixtures\Ticket5775Object;
+use Symfony\Component\PropertyAccess\Tests\Fixtures\TypeHinted;
 
 class PropertyAccessorTest extends \PHPUnit_Framework_TestCase
 {
@@ -27,6 +29,20 @@ class PropertyAccessorTest extends \PHPUnit_Framework_TestCase
     protected function setUp()
     {
         $this->propertyAccessor = new PropertyAccessor();
+    }
+
+    public function getPathsWithUnexpectedType()
+    {
+        return array(
+            array('', 'foobar'),
+            array('foo', 'foobar'),
+            array(null, 'foobar'),
+            array(123, 'foobar'),
+            array((object) array('prop' => null), 'prop.foobar'),
+            array((object) array('prop' => (object) array('subProp' => null)), 'prop.subProp.foobar'),
+            array(array('index' => null), '[index][foobar]'),
+            array(array('index' => array('subIndex' => null)), '[index][subIndex][foobar]'),
+        );
     }
 
     public function testGetValueReadsArray()
@@ -76,9 +92,11 @@ class PropertyAccessorTest extends \PHPUnit_Framework_TestCase
 
     public function testGetValueReadsArrayWithMissingIndexForCustomPropertyPath()
     {
-        $array = array('child' => array('index' => array()));
+        $object = new \ArrayObject();
+        $array = array('child' => array('index' => $object));
 
-        $this->assertNull($this->propertyAccessor->getValue($array, '[child][index][firstName]'));
+        $this->assertNull($this->propertyAccessor->getValue($array, '[child][index][foo][bar]'));
+        $this->assertSame(array(), $object->getArrayCopy());
     }
 
     public function testGetValueReadsProperty()
@@ -89,13 +107,13 @@ class PropertyAccessorTest extends \PHPUnit_Framework_TestCase
         $this->assertEquals('Bernhard', $this->propertyAccessor->getValue($object, 'firstName'));
     }
 
-    public function testGetValueIgnoresSingular()
+    public function testGetValueNotModifyObject()
     {
-        $this->markTestSkipped('This feature is temporarily disabled as of 2.1');
+        $object = new Author();
+        $object->firstName = array('Bernhard');
 
-        $object = (object) array('children' => 'Many');
-
-        $this->assertEquals('Many', $this->propertyAccessor->getValue($object, 'children|child'));
+        $this->assertNull($this->propertyAccessor->getValue($object, 'firstName[1]'));
+        $this->assertSame(array('Bernhard'), $object->firstName);
     }
 
     public function testGetValueReadsPropertyWithSpecialCharsExceptDot()
@@ -198,27 +216,13 @@ class PropertyAccessorTest extends \PHPUnit_Framework_TestCase
     }
 
     /**
+     * @dataProvider getPathsWithUnexpectedType
      * @expectedException \Symfony\Component\PropertyAccess\Exception\UnexpectedTypeException
+     * @expectedExceptionMessage Expected argument of type "object or array"
      */
-    public function testGetValueThrowsExceptionIfNotObjectOrArray()
+    public function testGetValueThrowsExceptionIfNotObjectOrArray($objectOrArray, $path)
     {
-        $this->propertyAccessor->getValue('baz', 'foobar');
-    }
-
-    /**
-     * @expectedException \Symfony\Component\PropertyAccess\Exception\UnexpectedTypeException
-     */
-    public function testGetValueThrowsExceptionIfNull()
-    {
-        $this->propertyAccessor->getValue(null, 'foobar');
-    }
-
-    /**
-     * @expectedException \Symfony\Component\PropertyAccess\Exception\UnexpectedTypeException
-     */
-    public function testGetValueThrowsExceptionIfEmpty()
-    {
-        $this->propertyAccessor->getValue('', 'foobar');
+        $this->propertyAccessor->getValue($objectOrArray, $path);
     }
 
     public function testGetValueWhenArrayValueIsNull()
@@ -307,37 +311,19 @@ class PropertyAccessorTest extends \PHPUnit_Framework_TestCase
      */
     public function testSetValueThrowsExceptionIfGetterIsNotPublic()
     {
-        $this->propertyAccessor->setValue(new Author(), 'privateSetter', 'foobar');
+        $object = new Author();
+
+        $this->propertyAccessor->setValue($object, 'privateSetter', 'foobar');
     }
 
     /**
+     * @dataProvider getPathsWithUnexpectedType
      * @expectedException \Symfony\Component\PropertyAccess\Exception\UnexpectedTypeException
+     * @expectedExceptionMessage Expected argument of type "object or array"
      */
-    public function testSetValueThrowsExceptionIfNotObjectOrArray()
+    public function testSetValueThrowsExceptionIfNotObjectOrArray($objectOrArray, $path)
     {
-        $value = 'baz';
-
-        $this->propertyAccessor->setValue($value, 'foobar', 'bam');
-    }
-
-    /**
-     * @expectedException \Symfony\Component\PropertyAccess\Exception\UnexpectedTypeException
-     */
-    public function testSetValueThrowsExceptionIfNull()
-    {
-        $value = null;
-
-        $this->propertyAccessor->setValue($value, 'foobar', 'bam');
-    }
-
-    /**
-     * @expectedException \Symfony\Component\PropertyAccess\Exception\UnexpectedTypeException
-     */
-    public function testSetValueThrowsExceptionIfEmpty()
-    {
-        $value = '';
-
-        $this->propertyAccessor->setValue($value, 'foobar', 'bam');
+        $this->propertyAccessor->setValue($objectOrArray, $path, 'value');
     }
 
     /**
@@ -357,7 +343,7 @@ class PropertyAccessorTest extends \PHPUnit_Framework_TestCase
     {
         $value = new MagicianCall();
 
-        $this->propertyAccessor->getValue($value, 'foobar', 'bam');
+        $this->propertyAccessor->getValue($value, 'foobar');
     }
 
     public function testGetValueReadsMagicCall()
@@ -394,5 +380,63 @@ class PropertyAccessorTest extends \PHPUnit_Framework_TestCase
         $this->propertyAccessor->setValue($object, 'property', 'foobar');
 
         $this->assertEquals('foobar', $object->getProperty());
+    }
+
+    /**
+     * @dataProvider getValidPropertyPaths
+     */
+    public function testSetValue($objectOrArray, $path)
+    {
+        $this->propertyAccessor->setValue($objectOrArray, $path, 'Updated');
+
+        $this->assertSame('Updated', $this->propertyAccessor->getValue($objectOrArray, $path));
+    }
+
+    public function getValidPropertyPaths()
+    {
+        return array(
+            array(array('Bernhard', 'Schussek'), '[0]', 'Bernhard'),
+            array(array('Bernhard', 'Schussek'), '[1]', 'Schussek'),
+            array(array('firstName' => 'Bernhard'), '[firstName]', 'Bernhard'),
+            array(array('index' => array('firstName' => 'Bernhard')), '[index][firstName]', 'Bernhard'),
+            array((object) array('firstName' => 'Bernhard'), 'firstName', 'Bernhard'),
+            array((object) array('property' => array('firstName' => 'Bernhard')), 'property[firstName]', 'Bernhard'),
+            array(array('index' => (object) array('firstName' => 'Bernhard')), '[index].firstName', 'Bernhard'),
+            array((object) array('property' => (object) array('firstName' => 'Bernhard')), 'property.firstName', 'Bernhard'),
+
+            // Missing indices
+            array(array('index' => array()), '[index][firstName]', null),
+            array(array('root' => array('index' => array())), '[root][index][firstName]', null),
+        );
+    }
+
+    /**
+     * @expectedException \Symfony\Component\PropertyAccess\Exception\InvalidArgumentException
+     * @expectedExceptionMessage Expected argument of type "DateTime", "string" given
+     */
+    public function testThrowTypeError()
+    {
+        $object = new TypeHinted();
+
+        $this->propertyAccessor->setValue($object, 'date', 'This is a string, \DateTime expected.');
+    }
+
+    public function testSetTypeHint()
+    {
+        $date = new \DateTime();
+        $object = new TypeHinted();
+
+        $this->propertyAccessor->setValue($object, 'date', $date);
+        $this->assertSame($date, $object->getDate());
+    }
+
+    public function testArrayNotBeeingOverwritten()
+    {
+        $value = array('value1' => 'foo', 'value2' => 'bar');
+        $object = new TestClass($value);
+
+        $this->propertyAccessor->setValue($object, 'publicAccessor[value2]', 'baz');
+        $this->assertSame('baz', $this->propertyAccessor->getValue($object, 'publicAccessor[value2]'));
+        $this->assertSame(array('value1' => 'foo', 'value2' => 'baz'), $object->getPublicAccessor());
     }
 }

@@ -67,7 +67,7 @@ class ProcessBuilder
     }
 
     /**
-     * Adds an unescaped prefix to the command string.
+     * Adds a prefix to the command string.
      *
      * The prefix is preserved when resetting arguments.
      *
@@ -156,7 +156,7 @@ class ProcessBuilder
      */
     public function setInput($stdin)
     {
-        $this->stdin = ProcessUtils::validateInput(sprintf('%s::%s', __CLASS__, __FUNCTION__), $stdin);
+        $this->stdin = ProcessUtils::validateInput(__METHOD__, $stdin);
 
         return $this;
     }

@@ -57,7 +57,7 @@
     {%- endif -%}
     <select {{ block('widget_attributes') }}{% if multiple %} multiple="multiple"{% endif %}>
         {%- if empty_value is not none -%}
-            <option value=""{% if required and value is empty %} selected="selected"{% endif %}>{{ empty_value|trans({}, translation_domain) }}</option>
+            <option value=""{% if required and value is empty %} selected="selected"{% endif %}>{{ empty_value != '' ? empty_value|trans({}, translation_domain) }}</option>
         {%- endif -%}
         {%- if preferred_choices|length > 0 -%}
             {% set options = preferred_choices %}
@@ -195,7 +195,7 @@
 {# Labels #}
 
 {%- block form_label -%}
-    {% if label is not sameas(false) %}
+    {% if label is not same as(false) %}
         {%- if not compound -%}
             {% set label_attr = label_attr|merge({'for': id}) %}
         {%- endif -%}
@@ -304,7 +304,7 @@
 
 {%- block widget_container_attributes -%}
     {% if id is not empty %}id="{{ id }}" {% endif %}
-    {%- for attrname, attrvalue in attr %}{{ attrname }}="{{ attrvalue }}" {%- endfor -%}
+    {%- for attrname, attrvalue in attr %}{{ attrname }}="{{ attrvalue }}" {% endfor -%}
 {%- endblock widget_container_attributes -%}
 
 {%- block button_attributes -%}
